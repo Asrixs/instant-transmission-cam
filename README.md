@@ -117,15 +117,27 @@ Opties zet je achter `start.bat`, bijvoorbeeld `.\start.bat --camera 1 --debug`.
 
 ## Wordt het gebaar niet (goed) herkend?
 
-Start met `.\start.bat --debug`, maak het gebaar en kopieer een paar
-`[Debug]`-regels. Zo lees je ze:
+Het voorbeeldvenster toont onder **Mist nog** wat er aan het gebaar ontbreekt,
+bijvoorbeeld `middelvinger niet gestrekt`. Houd je hand iets meer naar de
+camera gedraaid als de middelvinger achter je wijsvinger verdwijnt; dan kan
+de camera beide vingers zien.
+
+Voor de precieze meetwaarden start je met `.\start.bat --debug`, maak je het
+gebaar en kopieer je een paar `[Debug]`-regels. Zo lees je ze:
 
 | Waarde | Moet zijn | Betekenis |
 |---|---|---|
-| `wijs`, `midden` | ≥ 1.20 | Vinger gestrekt |
-| `ring`, `pink` | ≤ 1.10 | Vinger ingevouwen |
-| `tussenruimte` | ≤ 0.45 | Vingertoppen tegen elkaar |
-| `voorhoofd` | ≤ 0.90 | Vingertoppen dicht bij het voorhoofd |
+| `wijs`, `midden` | ≥ 1.10 | Vinger gestrekt |
+| `ring`, `pink` | ≤ 1.15 | Vinger ingevouwen |
+| | verschil ≥ 0.10 | Gestrekte vingers duidelijk langer dan ingevouwen |
+| `tussenruimte` | ≤ 0.55 | Vingertoppen tegen elkaar |
+| `voorhoofd` | ≤ 0.60 | Vingertoppen dicht bij het voorhoofd |
+
+Valt de herkenning heel even weg (korter dan 0,4 seconde), dan loopt de teller
+gewoon door.
+
+De regels die beginnen met `W0000` of `INFO` komen van MediaPipe zelf en zijn
+onschuldig.
 
 De grenzen staan in `itcam/gesture.py` (`GestureSettings`).
 

@@ -21,18 +21,22 @@ PINKY_PIP, PINKY_TIP = 18, 20
 
 @dataclass(frozen=True)
 class GestureSettings:
+    # Afgesteld op echte metingen: gestrekte vingers geven ~1.2-1.5, ingevouwen ~0.7-1.1.
     # Vinger telt als gestrekt als de top zoveel verder van de pols ligt dan het middelste kootje.
-    extended_ratio: float = 1.2
+    extended_ratio: float = 1.1
     # Vinger telt als ingevouwen als de top hooguit zoveel verder van de pols ligt dan het middelste kootje.
-    folded_ratio: float = 1.1
+    folded_ratio: float = 1.15
+    # Gestrekte vingers moeten minstens zoveel hoger scoren dan ingevouwen vingers,
+    # zodat een half gekromde hand (alle vingers ~1.1) niet telt.
+    min_finger_margin: float = 0.1
     # Maximale afstand tussen de twee vingertoppen, relatief aan de handgrootte.
-    max_tip_gap: float = 0.45
+    max_tip_gap: float = 0.55
     # Maximale afstand tussen vingertoppen en voorhoofd, relatief aan de oogafstand.
-    max_forehead_distance: float = 0.9
+    max_forehead_distance: float = 0.6
     # Zo lang moet het gebaar worden vastgehouden.
     hold_seconds: float = 1.0
     # Zo lang mag de herkenning even wegvallen zonder dat de teller opnieuw begint.
-    grace_seconds: float = 0.25
+    grace_seconds: float = 0.4
 
 
 @dataclass(frozen=True)
@@ -45,15 +49,28 @@ class GestureMeasurement:
     forehead_distance: float
     fingertips_px: np.ndarray  # middelpunt van wijs- en middelvingertop, in pixels
 
+    def problems(self, settings: GestureSettings) -> list[str]:
+        """Waarom dit (nog) niet het gebaar is; een lege lijst betekent: wel het gebaar."""
+        problems = []
+        if self.forehead_distance > settings.max_forehead_distance:
+            problems.append("niet bij voorhoofd")
+        if self.index_ratio < settings.extended_ratio:
+            problems.append("wijsvinger niet gestrekt")
+        if self.middle_ratio < settings.extended_ratio:
+            problems.append("middelvinger niet gestrekt")
+        if max(self.ring_ratio, self.pinky_ratio) > settings.folded_ratio:
+            problems.append("ring/pink niet ingevouwen")
+        elif (
+            min(self.index_ratio, self.middle_ratio) - max(self.ring_ratio, self.pinky_ratio)
+            < settings.min_finger_margin
+        ):
+            problems.append("hand half gekromd")
+        if self.tip_gap > settings.max_tip_gap:
+            problems.append("vingers niet tegen elkaar")
+        return problems
+
     def matches(self, settings: GestureSettings) -> bool:
-        return (
-            self.index_ratio >= settings.extended_ratio
-            and self.middle_ratio >= settings.extended_ratio
-            and self.ring_ratio <= settings.folded_ratio
-            and self.pinky_ratio <= settings.folded_ratio
-            and self.tip_gap <= settings.max_tip_gap
-            and self.forehead_distance <= settings.max_forehead_distance
-        )
+        return not self.problems(settings)
 
     def describe(self) -> str:
         return (

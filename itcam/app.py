@@ -112,10 +112,12 @@ def main() -> int:
                 flash_until = now + FLASH_SECONDS
                 print(f"[Gebaar] Instant Transmission herkend! ({trigger_count}x)")
 
+            problems = detection.best.problems(settings) if detection.best is not None else []
             if args.debug and detection.best is not None and now - last_debug >= DEBUG_INTERVAL_SECONDS:
                 last_debug = now
                 state = "JA " if detection.active else "nee"
-                print(f"[Debug] gebaar={state} {detection.best.describe()}")
+                reason = f"  ({', '.join(problems)})" if problems else ""
+                print(f"[Debug] gebaar={state} {detection.best.describe()}{reason}")
 
             # De virtuele camera krijgt het schone beeld, zonder hulplijnen of tekst.
             if virtual is not None:
@@ -130,10 +132,13 @@ def main() -> int:
                 cv2.rectangle(preview, (0, 0), (width - 1, height - 1), GREEN, 12)
             if show_overlay:
                 virtual_state = "aan" if virtual is not None and virtual.active else "uit"
-                draw_status(preview, [
+                status = [
                     f"Virtuele camera: {virtual_state}",
                     f"Gebaar: {int(update.progress * 100)}%   herkend: {trigger_count}x",
-                ])
+                ]
+                if problems:
+                    status.append(f"Mist nog: {', '.join(problems)}")
+                draw_status(preview, status)
             cv2.imshow(WINDOW_NAME, preview)
 
             key = cv2.waitKey(1) & 0xFF

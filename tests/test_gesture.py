@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from itcam.gesture import GestureHold, GestureSettings, measure_hand
+from itcam.gesture import GestureHold, GestureMeasurement, GestureSettings, measure_hand
 
 SETTINGS = GestureSettings()
 FOREHEAD = np.array([640.0, 200.0])
@@ -112,3 +112,41 @@ class TestGestureHold:
         hold.update(False, 3.5)
         hold.update(True, 4.0)
         assert hold.update(True, 5.0).triggered
+
+
+def recorded(index, middle, ring, pinky, gap, forehead) -> GestureMeasurement:
+    return GestureMeasurement(index, middle, ring, pinky, gap, forehead, np.zeros(2))
+
+
+# Meetwaarden uit een echte test op Windows (--debug), terwijl het gebaar werd gemaakt.
+@pytest.mark.parametrize("values", [
+    (1.32, 1.23, 0.88, 0.88, 0.19, 0.09),
+    (1.48, 1.40, 1.09, 1.06, 0.17, 0.17),
+    (1.31, 1.35, 0.94, 0.91, 0.28, 0.09),
+    (1.23, 1.19, 0.84, 0.84, 0.17, 0.07),  # werd eerst gemist: middelvinger net onder 1.2
+    (1.41, 1.47, 1.06, 1.07, 0.48, 0.33),  # werd eerst gemist: vingers iets uit elkaar
+    (1.32, 1.11, 0.88, 0.83, 0.44, 0.27),  # werd eerst gemist: middelvinger 1.11
+])
+def test_recorded_gestures_match(values):
+    assert recorded(*values).matches(SETTINGS)
+
+
+# Meetwaarden van dezelfde test terwijl de hand weg bewoog of open was.
+@pytest.mark.parametrize("values", [
+    (1.13, 1.21, 1.23, 1.25, 0.18, 0.99),
+    (1.16, 1.17, 1.23, 1.30, 0.20, 0.73),
+    (1.03, 0.99, 1.06, 1.26, 0.21, 2.08),
+    (1.34, 0.96, 0.83, 0.85, 0.77, 0.42),  # alleen wijsvinger
+])
+def test_recorded_non_gestures_do_not_match(values):
+    assert not recorded(*values).matches(SETTINGS)
+
+
+def test_half_curled_hand_does_not_match():
+    measurement = recorded(1.12, 1.12, 1.10, 1.08, 0.2, 0.1)
+    assert measurement.problems(SETTINGS) == ["hand half gekromd"]
+
+
+def test_problems_explain_what_is_missing():
+    measurement = recorded(1.34, 0.96, 0.83, 0.85, 0.77, 0.42)
+    assert measurement.problems(SETTINGS) == ["middelvinger niet gestrekt", "vingers niet tegen elkaar"]
