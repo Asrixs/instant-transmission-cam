@@ -10,6 +10,7 @@ import numpy as np
 
 from .camera import VirtualCamera, open_webcam
 from .detector import Detection, GestureDetector
+from .effects import EFFECTS, create_effect, next_effect_name
 from .gesture import GestureHold, GestureSettings
 from .models import ensure_models
 from .segmenter import PersonSegmenter
@@ -19,7 +20,6 @@ from .vanish import (
     CaptureStatus,
     Visibility,
     difference_mask,
-    hide_person,
     person_fraction,
     prepare_mask,
 )
@@ -43,7 +43,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hold", type=float, default=1.0, help="seconden dat je het gebaar moet vasthouden")
     parser.add_argument("--countdown", type=float, default=4.0,
                         help="seconden om uit beeld te stappen voordat de achtergrond wordt vastgelegd")
-    parser.add_argument("--transition", type=float, default=0.5, help="duur van verdwijnen/verschijnen in seconden")
+    parser.add_argument("--transition", type=float, default=0.8, help="duur van verdwijnen/verschijnen in seconden")
+    parser.add_argument("--effect", choices=list(EFFECTS), default="teleport",
+                        help="effect bij verdwijnen/verschijnen (wisselen met E in het voorbeeldvenster)")
     parser.add_argument(
         "--virtual-camera", action=argparse.BooleanOptionalAction, default=None,
         help="--virtual-camera: stop als de virtuele camera niet werkt; "
@@ -128,12 +130,15 @@ def main() -> int:
     hold = GestureHold(settings.hold_seconds, settings.grace_seconds)
     background_capture = BackgroundCapture(args.countdown)
     visibility = Visibility(args.transition)
+    effect = create_effect(args.effect)
     brightness = BrightnessMatcher()
     background: np.ndarray | None = None
     background_small: np.ndarray | None = None
 
     print("[Klaar] Toetsen in het voorbeeldvenster: Spatie = lege kamer opnieuw vastleggen, "
-          "V = verdwijnen/verschijnen zonder gebaar, H = hulplijnen, M = spiegelen, Q/Esc = stoppen.")
+          "V = verdwijnen/verschijnen zonder gebaar, E = ander effect, H = hulplijnen, M = spiegelen, "
+          "Q/Esc = stoppen.")
+    print(f"[Effect] {effect.name}")
     print(f"[Achtergrond] Stap uit beeld: over {args.countdown:g} seconden wordt de lege kamer vastgelegd.")
     background_capture.start(time.monotonic())
 
@@ -196,7 +201,7 @@ def main() -> int:
                     brightness.update(small, background_small, confidence)
                     difference = difference_mask(small, brightness.apply(background_small))
                     mask = prepare_mask(confidence, (width, height), difference)
-                    output = hide_person(frame, brightness.apply(background), mask, hidden)
+                    output = effect.render(frame, brightness.apply(background), mask, hidden, now)
 
             capture_status = background_capture.status(now)
             if capture_status is not None and capture_status.phase != last_capture_phase:
@@ -225,7 +230,7 @@ def main() -> int:
                     state = "zichtbaar" if visibility.visible else "onzichtbaar"
                 status = [
                     f"Virtuele camera: {virtual_state}",
-                    f"Status: {state}",
+                    f"Status: {state}   effect: {effect.name} (E)",
                     f"Gebaar: {int(update.progress * 100)}%   herkend: {trigger_count}x",
                 ]
                 if problems:
@@ -245,6 +250,9 @@ def main() -> int:
                       "de lege kamer opnieuw vastgelegd.")
             if key in (ord("v"), ord("V")):
                 toggle_visibility()
+            if key in (ord("e"), ord("E")):
+                effect = create_effect(next_effect_name(effect.name))
+                print(f"[Effect] {effect.name}")
             if key in (ord("h"), ord("H")):
                 show_overlay = not show_overlay
             if key in (ord("m"), ord("M")):

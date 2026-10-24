@@ -12,9 +12,9 @@ Echte webcam → Instant Transmission Cam → OBS Virtual Camera → Teams / Zoo
 
 Alles draait lokaal op je computer. Er wordt niets opgenomen of verstuurd.
 
-**Status:** fase 3: met het gebaar verdwijn je uit beeld en kom je weer
-terug, met een zachte overgang. Het spectaculaire teleport-effect volgt in
-fase 4 (zie [Planning](#planning)).
+**Status:** fase 4: met het gebaar teleporteer je uit beeld (flikkeren,
+snelheidslijnen en een lichtflits) en met hetzelfde gebaar kom je terug.
+Geluid en afwerking volgen in fase 5 (zie [Planning](#planning)).
 
 ## Wat heb je nodig
 
@@ -118,6 +118,20 @@ Bij herkenning knippert de rand van het voorbeeldvenster groen en **verdwijn
 je**. Doe het gebaar nog een keer om terug te komen; haal je hand daarvoor
 eerst even weg.
 
+## Effecten
+
+Wissel tijdens het gebruik van effect met de toets **E**, of kies er een bij
+het starten met `--effect`:
+
+| Effect | Wat je ziet |
+|---|---|
+| `teleport` (standaard) | Snelheidslijnen schieten over je heen, je flikkert steeds vaker weg, een witte flits op je silhouet en weg ben je. |
+| `glitch` | Je silhouet hapert in horizontale stroken met kleurverschuiving, als een storing in de verbinding. |
+| `fade` | Rustige vervaging. |
+
+Bij terugkomen speelt het effect achterstevoren af. De overgang duurt
+standaard 0,8 seconde; pas dat aan met bijvoorbeeld `--transition 1.2`.
+
 Terwijl je onzichtbaar bent, toont het voorbeeldvenster rechtsboven een klein
 live beeld van jezelf (*jij (alleen hier)*), zodat je ziet wat je doet. De
 anderen zien dat niet.
@@ -128,6 +142,7 @@ anderen zien dat niet.
 |---|---|
 | `Spatie` | Lege kamer opnieuw vastleggen |
 | `V` | Verdwijnen/verschijnen zonder gebaar (handig om te testen) |
+| `E` | Ander effect: teleport → glitch → fade |
 | `Q` / `Esc` | Stoppen |
 | `H` | Hulplijnen en tekst aan/uit |
 | `M` | Voorbeeld spiegelen aan/uit (de virtuele camera wordt nooit gespiegeld) |
@@ -142,7 +157,8 @@ Opties zet je achter `start.bat`, bijvoorbeeld `.\start.bat --camera 1 --debug`.
 | `--width 1920 --height 1080` | Resolutie (standaard 1280x720) |
 | `--hold 0.8` | Hoe lang je het gebaar moet vasthouden, in seconden |
 | `--countdown 6` | Seconden om uit beeld te stappen bij het vastleggen van de lege kamer (standaard 4) |
-| `--transition 1` | Duur van verdwijnen en verschijnen, in seconden (standaard 0.5) |
+| `--effect glitch` | Effect bij het starten: `teleport` (standaard), `glitch` of `fade` |
+| `--transition 1.2` | Duur van verdwijnen en verschijnen, in seconden (standaard 0.8) |
 | `--debug` | Meetwaarden van het gebaar in de terminal tonen |
 | `--no-virtual-camera` | Alleen het voorbeeldvenster, zonder virtuele camera |
 | `--virtual-camera` | Stoppen met een foutmelding als de virtuele camera niet werkt |
@@ -191,7 +207,7 @@ De grenzen staan in `itcam/gesture.py` (`GestureSettings`).
 1. ✅ Webcambeeld doorgeven aan de virtuele camera
 2. ✅ Instant Transmission-gebaar herkennen
 3. ✅ Verdwijnen en terugkomen: lege kamer vastleggen en jezelf eruit knippen
-4. ⬜ Teleport-effect
+4. ✅ Teleport-effect (plus glitch en fade)
 5. ⬜ Geluid, instellingen en een los te starten programma
 
 ## Voor ontwikkelaars
@@ -202,10 +218,11 @@ itcam/
   camera.py     webcam openen en OBS Virtual Camera aansturen
   detector.py   MediaPipe: voorhoofd (Face Landmarker) en handen (Hand Landmarker)
   gesture.py    rekenwerk voor het gebaar en de houdtijd, zonder camera testbaar
+  effects.py    overgangseffecten teleport, glitch en fade, zonder camera testbaar
   segmenter.py  MediaPipe: welke pixels bij jou horen (Selfie Segmenter)
   vanish.py     lege kamer vastleggen, masker, helderheid en overgang, zonder camera testbaar
   models.py     eenmalige download van de MediaPipe-modellen naar models/
-tests/          tests voor gesture.py en vanish.py
+tests/          tests voor gesture.py, vanish.py en effects.py
 ```
 
 Hoe het verdwijnen werkt: het masker van de Selfie Segmenter wordt

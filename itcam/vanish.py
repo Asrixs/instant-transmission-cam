@@ -182,7 +182,11 @@ class Visibility:
         self._value = 1.0
 
     def update(self, now: float) -> float:
-        """Geeft terug hoeveel van de persoon verborgen moet worden (0..1, vloeiend)."""
+        """Geeft terug hoe ver de overgang is: 0 = zichtbaar, 1 = weg (lineair in de tijd).
+
+        Bij terugkomen loopt de waarde terug van 1 naar 0, zodat een effect
+        vanzelf achterstevoren wordt afgespeeld.
+        """
         elapsed = 0.0 if self._last is None else now - self._last
         self._last = now
         step = elapsed / self.transition_seconds if self.transition_seconds > 0 else 1.0
@@ -191,5 +195,4 @@ class Visibility:
             self._value = min(target, self._value + step)
         else:
             self._value = max(target, self._value - step)
-        hidden = 1.0 - self._value
-        return hidden * hidden * (3.0 - 2.0 * hidden)  # smoothstep: zacht begin en einde
+        return 1.0 - self._value
