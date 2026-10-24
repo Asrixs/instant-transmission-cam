@@ -150,3 +150,9 @@ def test_half_curled_hand_does_not_match():
 def test_problems_explain_what_is_missing():
     measurement = recorded(1.34, 0.96, 0.83, 0.85, 0.77, 0.42)
     assert measurement.problems(SETTINGS) == ["middelvinger niet gestrekt", "vingers niet tegen elkaar"]
+
+
+def test_hidden_middle_finger_is_not_reported_as_half_curled():
+    # Middelvinger verstopt achter de wijsvinger: alleen die oorzaak noemen.
+    measurement = recorded(1.21, 0.85, 0.80, 0.80, 0.51, 0.56)
+    assert measurement.problems(SETTINGS) == ["middelvinger niet gestrekt"]

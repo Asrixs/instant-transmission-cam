@@ -54,13 +54,16 @@ class GestureMeasurement:
         problems = []
         if self.forehead_distance > settings.max_forehead_distance:
             problems.append("niet bij voorhoofd")
+        extended_ok = True
         if self.index_ratio < settings.extended_ratio:
             problems.append("wijsvinger niet gestrekt")
+            extended_ok = False
         if self.middle_ratio < settings.extended_ratio:
             problems.append("middelvinger niet gestrekt")
+            extended_ok = False
         if max(self.ring_ratio, self.pinky_ratio) > settings.folded_ratio:
             problems.append("ring/pink niet ingevouwen")
-        elif (
+        elif extended_ok and (
             min(self.index_ratio, self.middle_ratio) - max(self.ring_ratio, self.pinky_ratio)
             < settings.min_finger_margin
         ):
