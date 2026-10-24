@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import time
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -14,6 +15,7 @@ from .effects import EFFECTS, create_effect, next_effect_name
 from .gesture import GestureHold, GestureSettings
 from .models import ensure_models
 from .segmenter import PersonSegmenter
+from .sound import SoundPlayer
 from .vanish import (
     BackgroundCapture,
     BrightnessMatcher,
@@ -46,6 +48,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--transition", type=float, default=0.8, help="duur van verdwijnen/verschijnen in seconden")
     parser.add_argument("--effect", choices=list(EFFECTS), default="teleport",
                         help="effect bij verdwijnen/verschijnen (wisselen met E in het voorbeeldvenster)")
+    parser.add_argument("--volume", type=float, default=0.8, help="volume van het teleportgeluid, 0 = uit (standaard 0.8)")
+    parser.add_argument("--no-sound", action="store_true", help="geen teleportgeluid")
+    parser.add_argument("--sound", type=Path, help="eigen geluid (16-bit WAV-bestand) in plaats van het teleportgeluid")
     parser.add_argument(
         "--virtual-camera", action=argparse.BooleanOptionalAction, default=None,
         help="--virtual-camera: stop als de virtuele camera niet werkt; "
@@ -131,12 +136,14 @@ def main() -> int:
     background_capture = BackgroundCapture(args.countdown)
     visibility = Visibility(args.transition)
     effect = create_effect(args.effect)
+    sound = SoundPlayer(args.transition, 0.0 if args.no_sound else args.volume, args.sound)
     brightness = BrightnessMatcher()
     background: np.ndarray | None = None
     background_small: np.ndarray | None = None
 
     print("[Klaar] Toetsen in het voorbeeldvenster: Spatie = lege kamer opnieuw vastleggen, "
-          "V = verdwijnen/verschijnen zonder gebaar, E = ander effect, H = hulplijnen, M = spiegelen, "
+          "V = verdwijnen/verschijnen zonder gebaar, E = ander effect, S = geluid aan/uit, "
+          "H = hulplijnen, M = spiegelen, "
           "Q/Esc = stoppen.")
     print(f"[Effect] {effect.name}")
     print(f"[Achtergrond] Stap uit beeld: over {args.countdown:g} seconden wordt de lege kamer vastgelegd.")
@@ -156,8 +163,10 @@ def main() -> int:
             return
         visibility.toggle()
         if visibility.visible:
+            sound.play_appear()
             print("[Gebaar] Je bent weer zichtbaar.")
         else:
+            sound.play_vanish()
             print("[Gebaar] Instant Transmission! Je bent nu onzichtbaar.")
 
     try:
@@ -230,7 +239,7 @@ def main() -> int:
                     state = "zichtbaar" if visibility.visible else "onzichtbaar"
                 status = [
                     f"Virtuele camera: {virtual_state}",
-                    f"Status: {state}   effect: {effect.name} (E)",
+                    f"Status: {state}   effect: {effect.name} (E)   geluid: {'aan' if sound.enabled else 'uit'} (S)",
                     f"Gebaar: {int(update.progress * 100)}%   herkend: {trigger_count}x",
                 ]
                 if problems:
@@ -253,6 +262,8 @@ def main() -> int:
             if key in (ord("e"), ord("E")):
                 effect = create_effect(next_effect_name(effect.name))
                 print(f"[Effect] {effect.name}")
+            if key in (ord("s"), ord("S")):
+                print(f"[Geluid] {'aan' if sound.toggle() else 'uit'}")
             if key in (ord("h"), ord("H")):
                 show_overlay = not show_overlay
             if key in (ord("m"), ord("M")):

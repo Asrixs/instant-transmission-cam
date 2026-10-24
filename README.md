@@ -13,8 +13,8 @@ Echte webcam → Instant Transmission Cam → OBS Virtual Camera → Teams / Zoo
 Alles draait lokaal op je computer. Er wordt niets opgenomen of verstuurd.
 
 **Status:** fase 4: met het gebaar teleporteer je uit beeld (flikkeren,
-snelheidslijnen en een lichtflits) en met hetzelfde gebaar kom je terug.
-Geluid en afwerking volgen in fase 5 (zie [Planning](#planning)).
+snelheidslijnen, een lichtflits en een teleportgeluid) en met hetzelfde gebaar
+kom je terug. Een los programma (.exe) volgt (zie [Planning](#planning)).
 
 ## Wat heb je nodig
 
@@ -132,6 +132,24 @@ het starten met `--effect`:
 Bij terugkomen speelt het effect achterstevoren af. De overgang duurt
 standaard 0,8 seconde; pas dat aan met bijvoorbeeld `--transition 1.2`.
 
+## Geluid
+
+Bij verdwijnen en terugkomen hoor je een teleportgeluid via je speakers of
+koptelefoon: een aanzwellende zoem tijdens het flikkeren en een "zjoep" op het
+moment van de flits. Bij terugkomen speelt het achterstevoren, net als het
+effect. Het geluid wordt door het programma zelf gemaakt; er zit geen
+geluidsfragment uit een serie of film in.
+
+- Druk op **S** om het geluid aan of uit te zetten.
+- Zachter of harder: `--volume 0.4` (standaard 0.8). Helemaal uit: `--no-sound`.
+- Een eigen geluid gebruiken: `--sound C:\pad\naar\geluid.wav` (16-bit WAV).
+  Dat wordt bij verdwijnen en terugkomen gewoon vooruit afgespeeld.
+- Alleen het geluid beluisteren: `.venv\Scripts\python -m itcam.sound` maakt
+  het bestand `teleport.wav`.
+
+> De anderen in de vergadering horen het geluid alleen als je microfoon het
+> oppikt. Met een koptelefoon horen zij het dus niet.
+
 Terwijl je onzichtbaar bent, toont het voorbeeldvenster rechtsboven een klein
 live beeld van jezelf (*jij (alleen hier)*), zodat je ziet wat je doet. De
 anderen zien dat niet.
@@ -143,6 +161,7 @@ anderen zien dat niet.
 | `Spatie` | Lege kamer opnieuw vastleggen |
 | `V` | Verdwijnen/verschijnen zonder gebaar (handig om te testen) |
 | `E` | Ander effect: teleport → glitch → fade |
+| `S` | Geluid aan/uit |
 | `Q` / `Esc` | Stoppen |
 | `H` | Hulplijnen en tekst aan/uit |
 | `M` | Voorbeeld spiegelen aan/uit (de virtuele camera wordt nooit gespiegeld) |
@@ -159,6 +178,9 @@ Opties zet je achter `start.bat`, bijvoorbeeld `.\start.bat --camera 1 --debug`.
 | `--countdown 6` | Seconden om uit beeld te stappen bij het vastleggen van de lege kamer (standaard 4) |
 | `--effect glitch` | Effect bij het starten: `teleport` (standaard), `glitch` of `fade` |
 | `--transition 1.2` | Duur van verdwijnen en verschijnen, in seconden (standaard 0.8) |
+| `--volume 0.4` | Volume van het teleportgeluid (standaard 0.8) |
+| `--no-sound` | Geen geluid |
+| `--sound geluid.wav` | Eigen geluid (16-bit WAV) in plaats van het teleportgeluid |
 | `--debug` | Meetwaarden van het gebaar in de terminal tonen |
 | `--no-virtual-camera` | Alleen het voorbeeldvenster, zonder virtuele camera |
 | `--virtual-camera` | Stoppen met een foutmelding als de virtuele camera niet werkt |
@@ -200,6 +222,7 @@ De grenzen staan in `itcam/gesture.py` (`GestureSettings`).
 | Er blijft een "spook" of rand van je zichtbaar | Druk op spatie en leg de lege kamer opnieuw vast; zorg dat je dan echt helemaal uit beeld bent. |
 | Een stuk van de kamer "bevriest" | Dat deel wijkt af van de vastgelegde foto (licht veranderd, iets verplaatst). Druk op spatie. |
 | Het beeld hapert als je onzichtbaar bent | Probeer een lagere resolutie: `--width 960 --height 540`. |
+| Geen geluid | Staat er `geluid: uit` in het voorbeeldvenster, druk dan op S. Meldt de terminal `Geen geluid mogelijk`, controleer dan of je speakers of koptelefoon als standaard-afspeelapparaat in Windows zijn ingesteld. |
 | Installatie mislukt halverwege | Verwijder de map `.venv` en start `start.bat` opnieuw. |
 
 ## Planning
@@ -208,7 +231,9 @@ De grenzen staan in `itcam/gesture.py` (`GestureSettings`).
 2. ✅ Instant Transmission-gebaar herkennen
 3. ✅ Verdwijnen en terugkomen: lege kamer vastleggen en jezelf eruit knippen
 4. ✅ Teleport-effect (plus glitch en fade)
-5. ⬜ Geluid, instellingen en een los te starten programma
+5. ⬜ Afwerking
+   - ✅ Teleportgeluid via de speakers
+   - ⬜ Los te starten programma (.exe)
 
 ## Voor ontwikkelaars
 
@@ -220,9 +245,10 @@ itcam/
   gesture.py    rekenwerk voor het gebaar en de houdtijd, zonder camera testbaar
   effects.py    overgangseffecten teleport, glitch en fade, zonder camera testbaar
   segmenter.py  MediaPipe: welke pixels bij jou horen (Selfie Segmenter)
+  sound.py      teleportgeluid genereren en afspelen (sounddevice)
   vanish.py     lege kamer vastleggen, masker, helderheid en overgang, zonder camera testbaar
   models.py     eenmalige download van de MediaPipe-modellen naar models/
-tests/          tests voor gesture.py, vanish.py en effects.py
+tests/          tests voor gesture.py, vanish.py, effects.py en sound.py
 ```
 
 Hoe het verdwijnen werkt: het masker van de Selfie Segmenter wordt
