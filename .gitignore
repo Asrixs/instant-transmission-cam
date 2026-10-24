@@ -4,3 +4,6 @@ __pycache__/
 .pytest_cache/
 models/
 teleport.wav
+# Eigen geluiden blijven lokaal (auteursrecht); alleen de uitleg gaat mee.
+sounds/*
+!sounds/README.md

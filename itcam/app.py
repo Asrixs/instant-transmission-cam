@@ -50,7 +50,8 @@ def parse_args() -> argparse.Namespace:
                         help="effect bij verdwijnen/verschijnen (wisselen met E in het voorbeeldvenster)")
     parser.add_argument("--volume", type=float, default=0.8, help="volume van het teleportgeluid, 0 = uit (standaard 0.8)")
     parser.add_argument("--no-sound", action="store_true", help="geen teleportgeluid")
-    parser.add_argument("--sound", type=Path, help="eigen geluid (16-bit WAV-bestand) in plaats van het teleportgeluid")
+    parser.add_argument("--sound", type=Path,
+                        help="eigen geluidsbestand (MP3/WAV/OGG/FLAC); standaard sounds/teleport.mp3 als dat bestaat")
     parser.add_argument(
         "--virtual-camera", action=argparse.BooleanOptionalAction, default=None,
         help="--virtual-camera: stop als de virtuele camera niet werkt; "
@@ -137,6 +138,8 @@ def main() -> int:
     visibility = Visibility(args.transition)
     effect = create_effect(args.effect)
     sound = SoundPlayer(args.transition, 0.0 if args.no_sound else args.volume, args.sound)
+    if sound.enabled:
+        print(f"[Geluid] {sound.description}")
     brightness = BrightnessMatcher()
     background: np.ndarray | None = None
     background_small: np.ndarray | None = None

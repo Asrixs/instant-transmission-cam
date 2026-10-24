@@ -1,6 +1,9 @@
-"""Teleportgeluid: zelf gegenereerd (of een eigen WAV-bestand) en afgespeeld via de speakers.
+"""Teleportgeluid via de speakers: een eigen geluidsbestand of het ingebouwde geluid.
 
-Het gegenereerde geluid volgt het teleport-effect: een oplopende zoem tijdens het
+Een eigen bestand (bijvoorbeeld sounds/teleport.mp3) wordt bijgeknipt en zo
+verschoven dat de klap samenvalt met de flits in het beeld.
+
+Het ingebouwde geluid volgt het teleport-effect: een oplopende zoem tijdens het
 flikkeren en een korte "zjoep" op het moment van de flits. Bij terugkomen wordt
 het achterstevoren afgespeeld, net als het effect.
 
@@ -9,6 +12,7 @@ Los te beluisteren:  .venv\\Scripts\\python -m itcam.sound  (maakt teleport.wav)
 
 from __future__ import annotations
 
+import sys
 import wave
 from pathlib import Path
 
@@ -18,10 +22,12 @@ SAMPLE_RATE = 44100
 # Moment van de felste flits in het teleport-effect, als deel van de overgang (zie effects.py).
 FLASH_AT = 0.68
 FLICKER_HZ = 18.0
-
-
-def _envelope(t: np.ndarray, start: float, end: float) -> np.ndarray:
-    return np.clip((t - start) / (end - start), 0.0, 1.0)
+# Map voor je eigen geluid. Staat naast het programma; wordt nooit naar GitHub gestuurd.
+SOUNDS_DIR = (
+    Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
+) / "sounds"
+SOUND_EXTENSIONS = (".mp3", ".wav", ".ogg", ".flac")
+SILENCE_LEVEL = 0.02
 
 
 def teleport_sound(duration: float, sample_rate: int = SAMPLE_RATE) -> np.ndarray:
@@ -59,16 +65,58 @@ def teleport_sound(duration: float, sample_rate: int = SAMPLE_RATE) -> np.ndarra
     return (sound / max(float(np.abs(sound).max()), 1e-6) * 0.9).astype(np.float32)
 
 
-def load_wav(path: Path) -> tuple[np.ndarray, int]:
-    """Lees een 16-bit WAV-bestand als mono float32 (-1..1)."""
-    with wave.open(str(path), "rb") as wav:
-        if wav.getsampwidth() != 2:
-            raise ValueError(f"{path.name}: alleen 16-bit WAV-bestanden worden ondersteund.")
-        channels = wav.getnchannels()
-        rate = wav.getframerate()
-        data = np.frombuffer(wav.readframes(wav.getnframes()), dtype=np.int16)
-    data = data.reshape(-1, channels).mean(axis=1) / 32768.0
-    return data.astype(np.float32), rate
+def load_sound(path: Path) -> tuple[np.ndarray, int]:
+    """Lees een geluidsbestand (MP3, WAV, OGG of FLAC) als mono float32 (-1..1)."""
+    import soundfile
+
+    data, rate = soundfile.read(str(path), dtype="float32", always_2d=True)
+    return data.mean(axis=1), rate
+
+
+def find_custom_sound(directory: Path | None = None) -> Path | None:
+    """Zoek sounds/teleport.mp3 (of .wav, .ogg, .flac)."""
+    directory = directory or SOUNDS_DIR
+    for extension in SOUND_EXTENSIONS:
+        path = directory / f"teleport{extension}"
+        if path.is_file():
+            return path
+    return None
+
+
+def trim_silence(sound: np.ndarray) -> np.ndarray:
+    """Knip stilte aan begin en eind weg."""
+    loud = np.flatnonzero(np.abs(sound) > SILENCE_LEVEL * max(float(np.abs(sound).max()), 1e-6))
+    if loud.size == 0:
+        return sound
+    return sound[loud[0]:loud[-1] + 1]
+
+
+def peak_time(sound: np.ndarray, sample_rate: int) -> float:
+    """Moment (s) waarop het geluid het hardst is, over blokjes van 20 ms."""
+    block = max(1, int(0.02 * sample_rate))
+    usable = len(sound) // block * block
+    if usable == 0:
+        return 0.0
+    loudness = np.sqrt(np.mean(sound[:usable].reshape(-1, block) ** 2, axis=1))
+    return (int(loudness.argmax()) + 0.5) * block / sample_rate
+
+
+def align_peak(sound: np.ndarray, sample_rate: int, at_seconds: float) -> np.ndarray:
+    """Laat het geluid later beginnen zodat de klap op at_seconds valt (nooit eerder dan nu)."""
+    delay = int(round((at_seconds - peak_time(sound, sample_rate)) * sample_rate))
+    if delay <= 0:
+        return sound
+    return np.concatenate([np.zeros(delay, dtype=sound.dtype), sound])
+
+
+def prepare_custom_sound(sound: np.ndarray, sample_rate: int, transition_seconds: float) -> tuple[np.ndarray, np.ndarray]:
+    """Maak van een eigen geluid een verdwijn- en terugkomversie, afgestemd op de flits."""
+    sound = trim_silence(sound)
+    sound = sound / max(float(np.abs(sound).max()), 1e-6) * 0.9
+    # Een eigen geluid klinkt achterstevoren meestal vreemd: beide keren vooruit afspelen.
+    vanish = align_peak(sound, sample_rate, FLASH_AT * transition_seconds)
+    appear = align_peak(sound, sample_rate, (1.0 - FLASH_AT) * transition_seconds)
+    return vanish.astype(np.float32), appear.astype(np.float32)
 
 
 def save_wav(path: Path, sound: np.ndarray, sample_rate: int = SAMPLE_RATE) -> None:
@@ -83,19 +131,23 @@ class SoundPlayer:
     """Speelt het verdwijn- en terugkomgeluid af; doet niets als er geen geluid kan."""
 
     def __init__(self, transition_seconds: float, volume: float, path: Path | None = None) -> None:
+        """path: eigen geluid; zonder path wordt sounds/teleport.* gebruikt als dat bestaat."""
         self.enabled = volume > 0
         self._backend = None
+        path = path or find_custom_sound()
         if path is not None:
             try:
-                sound, self._rate = load_wav(path)
-            except (OSError, ValueError, wave.Error) as error:
+                sound, self._rate = load_sound(path)
+            except Exception as error:
                 raise RuntimeError(f"Kan het geluidsbestand {path} niet lezen: {error}") from error
-            # Een eigen geluid klinkt achterstevoren meestal vreemd: speel het beide keren gewoon af.
-            self._vanish = self._appear = sound * volume
+            vanish, appear = prepare_custom_sound(sound, self._rate, transition_seconds)
+            self.description = f"eigen geluid {path.name}"
         else:
             self._rate = SAMPLE_RATE
-            self._vanish = teleport_sound(transition_seconds) * volume
-            self._appear = self._vanish[::-1].copy()
+            vanish = teleport_sound(transition_seconds)
+            appear = vanish[::-1].copy()
+            self.description = "ingebouwd teleportgeluid"
+        self._vanish, self._appear = vanish * volume, appear * volume
         if not self.enabled:
             return
         try:

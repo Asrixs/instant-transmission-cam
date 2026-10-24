@@ -135,17 +135,25 @@ standaard 0,8 seconde; pas dat aan met bijvoorbeeld `--transition 1.2`.
 ## Geluid
 
 Bij verdwijnen en terugkomen hoor je een teleportgeluid via je speakers of
-koptelefoon: een aanzwellende zoem tijdens het flikkeren en een "zjoep" op het
-moment van de flits. Bij terugkomen speelt het achterstevoren, net als het
-effect. Het geluid wordt door het programma zelf gemaakt; er zit geen
-geluidsfragment uit een serie of film in.
+koptelefoon.
+
+**Eigen geluid (bijvoorbeeld het echte Instant Transmission-geluid):** zet je
+geluidsbestand in de map `sounds` als **`teleport.mp3`** (of `.wav`, `.ogg`,
+`.flac`). Het programma gebruikt het dan automatisch en meldt bij het starten
+`[Geluid] eigen geluid teleport.mp3`.
+- Stilte aan begin en eind wordt weggeknipt.
+- Het hardste moment van het geluid wordt gelijkgezet met de flits in het beeld.
+- De map `sounds` wordt niet naar GitHub gestuurd. Geluiden uit series en films
+  zijn auteursrechtelijk beschermd: gebruik ze alleen voor jezelf.
+- Een bestand op een andere plek: `--sound C:\pad\naar\geluid.mp3`.
+
+**Ingebouwd geluid:** zonder eigen bestand maakt het programma zelf een geluid:
+een aanzwellende zoem tijdens het flikkeren en een "zjoep" op de flits. Bij
+terugkomen speelt het achterstevoren, net als het effect. Beluisteren:
+`.venv\Scripts\python -m itcam.sound` maakt het bestand `teleport.wav`.
 
 - Druk op **S** om het geluid aan of uit te zetten.
 - Zachter of harder: `--volume 0.4` (standaard 0.8). Helemaal uit: `--no-sound`.
-- Een eigen geluid gebruiken: `--sound C:\pad\naar\geluid.wav` (16-bit WAV).
-  Dat wordt bij verdwijnen en terugkomen gewoon vooruit afgespeeld.
-- Alleen het geluid beluisteren: `.venv\Scripts\python -m itcam.sound` maakt
-  het bestand `teleport.wav`.
 
 > De anderen in de vergadering horen het geluid alleen als je microfoon het
 > oppikt. Met een koptelefoon horen zij het dus niet.
@@ -179,8 +187,9 @@ Opties zet je achter `start.bat`, bijvoorbeeld `.\start.bat --camera 1 --debug`.
 | `--effect glitch` | Effect bij het starten: `teleport` (standaard), `glitch` of `fade` |
 | `--transition 1.2` | Duur van verdwijnen en verschijnen, in seconden (standaard 0.8) |
 | `--volume 0.4` | Volume van het teleportgeluid (standaard 0.8) |
-| `--no-sound` | Geen geluid |
-| `--sound geluid.wav` | Eigen geluid (16-bit WAV) in plaats van het teleportgeluid |
+| `--no-sound` | `Kan het geluidsbestand ... niet lezen` | Het bestand is beschadigd of geen echt MP3/WAV (bijvoorbeeld `.m4a` hernoemd naar `.mp3`). Zet het om naar MP3 of WAV, bijvoorbeeld met Audacity. |
+| Geen geluid |
+| `--sound geluid.mp3` | Eigen geluidsbestand (MP3/WAV/OGG/FLAC); standaard `sounds/teleport.mp3` als dat bestaat |
 | `--debug` | Meetwaarden van het gebaar in de terminal tonen |
 | `--no-virtual-camera` | Alleen het voorbeeldvenster, zonder virtuele camera |
 | `--virtual-camera` | Stoppen met een foutmelding als de virtuele camera niet werkt |
@@ -222,6 +231,7 @@ De grenzen staan in `itcam/gesture.py` (`GestureSettings`).
 | Er blijft een "spook" of rand van je zichtbaar | Druk op spatie en leg de lege kamer opnieuw vast; zorg dat je dan echt helemaal uit beeld bent. |
 | Een stuk van de kamer "bevriest" | Dat deel wijkt af van de vastgelegde foto (licht veranderd, iets verplaatst). Druk op spatie. |
 | Het beeld hapert als je onzichtbaar bent | Probeer een lagere resolutie: `--width 960 --height 540`. |
+| `Kan het geluidsbestand ... niet lezen` | Het bestand is beschadigd of geen echt MP3/WAV (bijvoorbeeld `.m4a` hernoemd naar `.mp3`). Zet het om naar MP3 of WAV, bijvoorbeeld met Audacity. |
 | Geen geluid | Staat er `geluid: uit` in het voorbeeldvenster, druk dan op S. Meldt de terminal `Geen geluid mogelijk`, controleer dan of je speakers of koptelefoon als standaard-afspeelapparaat in Windows zijn ingesteld. |
 | Installatie mislukt halverwege | Verwijder de map `.venv` en start `start.bat` opnieuw. |
 
