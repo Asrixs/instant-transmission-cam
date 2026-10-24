@@ -18,10 +18,27 @@ gebaar wordt herkend. Het verdwijnen zelf volgt in fase 3 (zie [Planning](#plann
 ## Wat heb je nodig
 
 - Windows 11
-- [Python](https://www.python.org/downloads/) 3.11 t/m 3.14 (bij installatie "Add Python to PATH" aanvinken)
+- [Python](https://www.python.org/downloads/) **3.11 t/m 3.14**, bij voorkeur 3.13 (zie hieronder)
 - [OBS Studio](https://obsproject.com/) 28 of nieuwer (levert de virtuele camera)
 - Git
 - Een webcam
+
+### Python-versie
+
+Nieuwere versies (3.15 en hoger) werken nog niet: `pyvirtualcam`, de
+koppeling met de virtuele camera, is daar nog niet voor beschikbaar. Je kunt
+Python 3.13 gewoon **naast** een nieuwere versie installeren; `start.bat` kiest
+zelf de juiste.
+
+Controleer welke versies je hebt met `py --list` in PowerShell. Staat 3.13 (of
+3.11, 3.12, 3.14) er niet tussen, installeer hem dan met:
+
+```powershell
+py install 3.13
+```
+
+Herkent PowerShell `py install` niet, download dan het Python 3.13-installatieprogramma
+("Windows installer (64-bit)") via [python.org/downloads/windows](https://www.python.org/downloads/windows/).
 
 ## Eenmalig: OBS instellen
 
@@ -119,7 +136,7 @@ De grenzen staan in `itcam/gesture.py` (`GestureSettings`).
 | `Virtuele camera niet beschikbaar` | Controleer of OBS Studio is geïnstalleerd en de virtuele camera in OBS uit staat. Doe de stappen bij [OBS instellen](#eenmalig-obs-instellen) nog eens. |
 | `Webcam 0 is niet beschikbaar` | Sluit Teams/Zoom/browsertabbladen die de camera gebruiken, of probeer `--camera 1`. |
 | Vergaderapp toont zwart beeld of het OBS-logo | Draait `start.bat` nog? Kies daarna opnieuw "OBS Virtual Camera" in de app. |
-| `py` of `python` wordt niet gevonden | Installeer Python opnieuw en vink "Add Python to PATH" aan. |
+| `Geen geschikte Python-versie gevonden` of `No matching distribution found for pyvirtualcam` | Je hebt een te nieuwe Python-versie. Installeer Python 3.13 ernaast, zie [Python-versie](#python-versie). `start.bat` maakt de omgeving dan vanzelf opnieuw aan. |
 | Installatie mislukt halverwege | Verwijder de map `.venv` en start `start.bat` opnieuw. |
 
 ## Planning
