@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import sys
 import urllib.request
 from pathlib import Path
 
-MODEL_DIR = Path(__file__).resolve().parent.parent / "models"
+# In de .exe zitten de modellen ingebouwd (PyInstaller pakt ze uit in sys._MEIPASS).
+MODEL_DIR = (
+    Path(getattr(sys, "_MEIPASS")) if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
+) / "models"
 FACE_MODEL = MODEL_DIR / "face_landmarker.task"
 HAND_MODEL = MODEL_DIR / "hand_landmarker.task"
 SEGMENTER_MODEL = MODEL_DIR / "selfie_segmenter_landscape.tflite"

@@ -69,6 +69,34 @@ onderdelen en herkenningsmodellen worden gedownload. Daarna start het meteen.
 
 Bijwerken naar een nieuwe versie: `git pull` en opnieuw `start.bat`.
 
+## Los programma (.exe)
+
+Je kunt er ook een los programma van maken dat je met een dubbelklik start,
+zonder terminal of Python.
+
+**Zelf bouwen:** dubbelklik op `build_exe.bat`. Na een paar minuten staat het
+programma in `dist\InstantTransmissionCam\`. Start `InstantTransmissionCam.exe`
+in die map; maak eventueel een snelkoppeling naar je bureaublad
+(rechtsklik → *Meer opties* → *Snelkoppeling maken*). Om te bewaren of te
+delen staat er ook een zip: `dist\InstantTransmissionCam.zip`.
+
+**Downloaden van GitHub:** ga in de repository naar **Actions** →
+**Build .exe** → **Run workflow**. Na ongeveer tien minuten staat onderaan de
+voltooide run een download **InstantTransmissionCam** (een zip). Pak die uit
+en start `InstantTransmissionCam.exe`.
+
+Goed om te weten:
+- Laat de `.exe` in zijn map staan: de map `_internal` ernaast hoort erbij.
+  Verplaats of kopieer altijd de hele map.
+- De map is groot (honderden MB's) doordat de herkenningsmodellen, MediaPipe
+  en OpenCV erin zitten. Daardoor werkt hij wel zonder internet.
+- Windows SmartScreen kan bij de eerste start waarschuwen, omdat het programma
+  niet digitaal ondertekend is. Kies **Meer informatie** → **Toch uitvoeren**.
+- Je eigen geluid zet je in de map `sounds` naast de `.exe`, als `teleport.mp3`.
+  Het zit niet in het programma zelf.
+- Opties werken ook: maak een snelkoppeling en zet ze achter het doel,
+  bijvoorbeeld `...\InstantTransmissionCam.exe --volume 0.5`.
+
 ## Gebruiken in een vergadering
 
 1. **Start eerst `start.bat`.** Er opent een voorbeeldvenster en de terminal
@@ -243,7 +271,7 @@ De grenzen staan in `itcam/gesture.py` (`GestureSettings`).
 4. ✅ Teleport-effect (plus glitch en fade)
 5. ⬜ Afwerking
    - ✅ Teleportgeluid via de speakers
-   - ⬜ Los te starten programma (.exe)
+   - ✅ Los te starten programma (.exe)
 
 ## Voor ontwikkelaars
 
@@ -259,6 +287,10 @@ itcam/
   vanish.py     lege kamer vastleggen, masker, helderheid en overgang, zonder camera testbaar
   models.py     eenmalige download van de MediaPipe-modellen naar models/
 tests/          tests voor gesture.py, vanish.py, effects.py en sound.py
+InstantTransmissionCam.spec   PyInstaller-recept voor de .exe (build_exe.bat)
+itcam_launcher.py             startpunt van de .exe
+tools/make_icon.py            maakt assets/icon.ico
+.github/workflows/            bouwt de .exe op GitHub (Windows) en test hem
 ```
 
 Hoe het verdwijnen werkt: het masker van de Selfie Segmenter wordt
@@ -269,6 +301,10 @@ belichting van de camera.
 
 ```
 ```
+
+`python -m itcam --self-test` controleert zonder camera of modellen,
+herkenning, uitknippen, effecten en geluid werken; de build doet dat ook met
+de `.exe`.
 
 Tests draaien:
 

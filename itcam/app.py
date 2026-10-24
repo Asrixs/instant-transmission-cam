@@ -58,7 +58,43 @@ def parse_args() -> argparse.Namespace:
              "--no-virtual-camera: alleen het voorbeeldvenster",
     )
     parser.add_argument("--debug", action="store_true", help="toon meetwaarden van het gebaar in de terminal")
+    parser.add_argument("--self-test", action="store_true",
+                        help="controleer zonder camera of alle onderdelen werken, en stop")
     return parser.parse_args()
+
+
+def self_test() -> int:
+    """Controleert zonder camera of modellen, MediaPipe, effecten en geluid werken (ook in de .exe)."""
+    import tempfile
+    from pathlib import Path as _Path
+
+    import pyvirtualcam  # noqa: F401  (moet in de .exe zitten)
+
+    from .sound import load_sound, save_wav, teleport_sound
+
+    ensure_models()
+    frame = np.zeros((360, 640, 3), dtype=np.uint8)
+    detector = GestureDetector(GestureSettings())
+    segmenter = PersonSegmenter()
+    try:
+        detector.detect(frame)
+        confidence, small = segmenter.segment(frame)
+        mask = prepare_mask(confidence, (640, 360), difference_mask(small, small))
+        for name in EFFECTS:
+            create_effect(name).render(frame, frame, mask, 0.5, 0.0)
+    finally:
+        detector.close()
+        segmenter.close()
+    with tempfile.TemporaryDirectory() as folder:
+        path = _Path(folder) / "test.wav"
+        save_wav(path, teleport_sound(0.2))
+        load_sound(path)
+    try:
+        import sounddevice  # noqa: F401
+    except OSError as error:  # geen audio-apparaat/PortAudio: het programma werkt dan zonder geluid
+        print(f"[Zelftest] Geluid niet beschikbaar: {error}")
+    print("[Zelftest] OK: modellen, herkenning, uitknippen, effecten en geluid werken.")
+    return 0
 
 
 def draw_overlay(preview: np.ndarray, detection: Detection, progress: float) -> None:
@@ -115,6 +151,8 @@ def capture_banner(status: CaptureStatus) -> str:
 
 def main() -> int:
     args = parse_args()
+    if args.self_test:
+        return self_test()
     settings = GestureSettings(hold_seconds=args.hold)
 
     ensure_models()
