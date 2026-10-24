@@ -81,7 +81,7 @@ in die map; maak eventueel een snelkoppeling naar je bureaublad
 delen staat er ook een zip: `dist\InstantTransmissionCam.zip`.
 
 **Downloaden van GitHub:** ga in de repository naar **Actions** →
-**Build .exe** → **Run workflow**. Na ongeveer tien minuten staat onderaan de
+**Build .exe** → **Run workflow**. Na een paar minuten staat onderaan de
 voltooide run een download **InstantTransmissionCam** (een zip). Pak die uit
 en start `InstantTransmissionCam.exe`.
 
