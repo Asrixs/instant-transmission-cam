@@ -23,6 +23,17 @@ DETECTION_WIDTH = 640
 FACE_MEMORY_SECONDS = 1.0
 
 
+class MonotonicTimestamps:
+    """MediaPipe eist per model strikt oplopende tijdstempels in milliseconden."""
+
+    def __init__(self) -> None:
+        self._last = -1
+
+    def next(self) -> int:
+        self._last = max(int(time.monotonic() * 1000), self._last + 1)
+        return self._last
+
+
 @dataclass(frozen=True)
 class Face:
     forehead_px: np.ndarray
@@ -57,7 +68,7 @@ class GestureDetector:
                 min_tracking_confidence=0.5,
             )
         )
-        self._last_timestamp = -1
+        self._timestamps = MonotonicTimestamps()
         self._last_face: Face | None = None
         self._last_face_time = 0.0
 
@@ -65,18 +76,12 @@ class GestureDetector:
         self._faces.close()
         self._hands.close()
 
-    def _timestamp_ms(self) -> int:
-        # MediaPipe eist strikt oplopende tijdstempels.
-        timestamp = max(int(time.monotonic() * 1000), self._last_timestamp + 1)
-        self._last_timestamp = timestamp
-        return timestamp
-
     def detect(self, frame_bgr: np.ndarray) -> Detection:
         height, width = frame_bgr.shape[:2]
         scale = min(1.0, DETECTION_WIDTH / width)
         small = cv2.resize(frame_bgr, None, fx=scale, fy=scale) if scale < 1.0 else frame_bgr
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(small, cv2.COLOR_BGR2RGB))
-        timestamp = self._timestamp_ms()
+        timestamp = self._timestamps.next()
         size = np.array([width, height], dtype=np.float32)
 
         face = self._find_face(self._faces.detect_for_video(image, timestamp), size)

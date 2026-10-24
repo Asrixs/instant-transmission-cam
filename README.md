@@ -12,8 +12,9 @@ Echte webcam → Instant Transmission Cam → OBS Virtual Camera → Teams / Zoo
 
 Alles draait lokaal op je computer. Er wordt niets opgenomen of verstuurd.
 
-**Status:** fase 1 en 2: het beeld gaat door naar de virtuele camera en het
-gebaar wordt herkend. Het verdwijnen zelf volgt in fase 3 (zie [Planning](#planning)).
+**Status:** fase 3: met het gebaar verdwijn je uit beeld en kom je weer
+terug, met een zachte overgang. Het spectaculaire teleport-effect volgt in
+fase 4 (zie [Planning](#planning)).
 
 ## Wat heb je nodig
 
@@ -80,8 +81,31 @@ Bijwerken naar een nieuwe versie: `git pull` en opnieuw `start.bat`.
 3. Je webcam kan maar door één programma tegelijk gebruikt worden. Kies in de
    vergaderapp dus nooit je echte webcam, anders kan dit programma er niet bij.
 
-Het voorbeeldvenster toont hulplijnen en tekst; die komen **niet** in de
-virtuele camera. Anderen zien alleen je normale beeld (en straks het effect).
+Het voorbeeldvenster toont wat de anderen zien, plus hulplijnen en tekst. Die
+hulplijnen en tekst komen **niet** in de virtuele camera.
+
+## De lege kamer vastleggen
+
+Om te kunnen verdwijnen moet het programma weten hoe de kamer eruitziet
+zonder jou:
+
+1. Bij het starten telt het voorbeeldvenster af: **Stap uit beeld: 4, 3, 2, 1**.
+2. Stap helemaal uit beeld, ook met je handen en schouders.
+3. Ben je nog (deels) in beeld, dan wacht het programma en meldt het
+   *Je bent nog in beeld - stap opzij*. Na 10 seconden wachten legt het de
+   kamer toch vast, voor het geval een poster of tv voor een persoon wordt
+   aangezien.
+4. Bij *Lege kamer vastgelegd!* kun je terugkomen.
+
+Druk op **spatie** om de lege kamer opnieuw vast te leggen, bijvoorbeeld als
+je de camera hebt verschoven of het licht flink is veranderd.
+
+**Tips voor het beste resultaat**
+- Zet je camera stevig neer; als hij beweegt klopt de foto van de kamer niet meer.
+- Kleine lichtverschillen (de camera die zijn belichting aanpast) worden
+  automatisch gecorrigeerd. Doe je een lamp aan of uit, druk dan op spatie.
+- Wat er achter je beweegt (een huisdier, iemand die langsloopt) blijft
+  gewoon zichtbaar: alleen jij wordt vervangen.
 
 ## Het gebaar
 
@@ -90,14 +114,20 @@ virtuele camera. Anderen zien alleen je normale beeld (en straks het effect).
 3. Zet de vingertoppen **midden op je voorhoofd**.
 4. Houd dat **1 seconde** vast. De groene ring rond je voorhoofd loopt vol.
 
-Bij herkenning knippert de rand van het voorbeeldvenster groen en meldt de
-terminal `Instant Transmission herkend!`. Om het opnieuw te doen haal je je
-hand eerst even weg.
+Bij herkenning knippert de rand van het voorbeeldvenster groen en **verdwijn
+je**. Doe het gebaar nog een keer om terug te komen; haal je hand daarvoor
+eerst even weg.
+
+Terwijl je onzichtbaar bent, toont het voorbeeldvenster rechtsboven een klein
+live beeld van jezelf (*jij (alleen hier)*), zodat je ziet wat je doet. De
+anderen zien dat niet.
 
 ## Toetsen (in het voorbeeldvenster)
 
 | Toets | Actie |
 |---|---|
+| `Spatie` | Lege kamer opnieuw vastleggen |
+| `V` | Verdwijnen/verschijnen zonder gebaar (handig om te testen) |
 | `Q` / `Esc` | Stoppen |
 | `H` | Hulplijnen en tekst aan/uit |
 | `M` | Voorbeeld spiegelen aan/uit (de virtuele camera wordt nooit gespiegeld) |
@@ -111,6 +141,8 @@ Opties zet je achter `start.bat`, bijvoorbeeld `.\start.bat --camera 1 --debug`.
 | `--camera 1` | Andere webcam gebruiken (standaard `0`) |
 | `--width 1920 --height 1080` | Resolutie (standaard 1280x720) |
 | `--hold 0.8` | Hoe lang je het gebaar moet vasthouden, in seconden |
+| `--countdown 6` | Seconden om uit beeld te stappen bij het vastleggen van de lege kamer (standaard 4) |
+| `--transition 1` | Duur van verdwijnen en verschijnen, in seconden (standaard 0.5) |
 | `--debug` | Meetwaarden van het gebaar in de terminal tonen |
 | `--no-virtual-camera` | Alleen het voorbeeldvenster, zonder virtuele camera |
 | `--virtual-camera` | Stoppen met een foutmelding als de virtuele camera niet werkt |
@@ -149,26 +181,40 @@ De grenzen staan in `itcam/gesture.py` (`GestureSettings`).
 | `Webcam 0 is niet beschikbaar` | Sluit Teams/Zoom/browsertabbladen die de camera gebruiken, of probeer `--camera 1`. |
 | Vergaderapp toont zwart beeld of het OBS-logo | Draait `start.bat` nog? Kies daarna opnieuw "OBS Virtual Camera" in de app. |
 | `Geen geschikte Python-versie gevonden` of `No matching distribution found for pyvirtualcam` | Je hebt een te nieuwe Python-versie. Installeer Python 3.13 ernaast, zie [Python-versie](#python-versie). `start.bat` maakt de omgeving dan vanzelf opnieuw aan. |
+| Er blijft een "spook" of rand van je zichtbaar | Druk op spatie en leg de lege kamer opnieuw vast; zorg dat je dan echt helemaal uit beeld bent. |
+| Een stuk van de kamer "bevriest" | Dat deel wijkt af van de vastgelegde foto (licht veranderd, iets verplaatst). Druk op spatie. |
+| Het beeld hapert als je onzichtbaar bent | Probeer een lagere resolutie: `--width 960 --height 540`. |
 | Installatie mislukt halverwege | Verwijder de map `.venv` en start `start.bat` opnieuw. |
 
 ## Planning
 
 1. ✅ Webcambeeld doorgeven aan de virtuele camera
 2. ✅ Instant Transmission-gebaar herkennen
-3. ⬜ Verdwijnen: achtergrond vastleggen en jezelf eruit knippen
-4. ⬜ Teleport-effect, en terugkomen met hetzelfde gebaar
+3. ✅ Verdwijnen en terugkomen: lege kamer vastleggen en jezelf eruit knippen
+4. ⬜ Teleport-effect
 5. ⬜ Geluid, instellingen en een los te starten programma
 
 ## Voor ontwikkelaars
 
 ```
 itcam/
-  app.py       hoofdlus: webcam → herkenning → virtuele camera + voorbeeld
-  camera.py    webcam openen en OBS Virtual Camera aansturen
-  detector.py  MediaPipe: voorhoofd (Face Landmarker) en handen (Hand Landmarker)
-  gesture.py   rekenwerk voor het gebaar en de houdtijd, zonder camera testbaar
-  models.py    eenmalige download van de MediaPipe-modellen naar models/
-tests/         tests voor gesture.py
+  app.py        hoofdlus: webcam → herkenning → verdwijnen → virtuele camera + voorbeeld
+  camera.py     webcam openen en OBS Virtual Camera aansturen
+  detector.py   MediaPipe: voorhoofd (Face Landmarker) en handen (Hand Landmarker)
+  gesture.py    rekenwerk voor het gebaar en de houdtijd, zonder camera testbaar
+  segmenter.py  MediaPipe: welke pixels bij jou horen (Selfie Segmenter)
+  vanish.py     lege kamer vastleggen, masker, helderheid en overgang, zonder camera testbaar
+  models.py     eenmalige download van de MediaPipe-modellen naar models/
+tests/          tests voor gesture.py en vanish.py
+```
+
+Hoe het verdwijnen werkt: het masker van de Selfie Segmenter wordt
+gecombineerd met alles wat afwijkt van de vastgelegde lege kamer (dat vangt
+bijvoorbeeld kleding in de kleur van de muur). Het masker wordt iets vergroot
+en zacht gemaakt, en op die plek komt de lege kamer, aangepast aan de huidige
+belichting van de camera.
+
+```
 ```
 
 Tests draaien:

@@ -8,6 +8,7 @@ from pathlib import Path
 MODEL_DIR = Path(__file__).resolve().parent.parent / "models"
 FACE_MODEL = MODEL_DIR / "face_landmarker.task"
 HAND_MODEL = MODEL_DIR / "hand_landmarker.task"
+SEGMENTER_MODEL = MODEL_DIR / "selfie_segmenter_landscape.tflite"
 
 MODEL_URLS = {
     FACE_MODEL: (
@@ -17,6 +18,10 @@ MODEL_URLS = {
     HAND_MODEL: (
         "https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
         "hand_landmarker/float16/latest/hand_landmarker.task"
+    ),
+    SEGMENTER_MODEL: (
+        "https://storage.googleapis.com/mediapipe-models/image_segmenter/"
+        "selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite"
     ),
 }
 
