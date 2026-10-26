@@ -123,15 +123,19 @@ zonder jou:
    *Je bent nog in beeld - stap opzij*. Na 10 seconden wachten legt het de
    kamer toch vast, voor het geval een poster of tv voor een persoon wordt
    aangezien.
-4. Bij *Lege kamer vastgelegd!* kun je terugkomen.
+4. Blijf nog even weg tijdens *Camera stelt zich in, blijf uit beeld...*
+   (ongeveer 1,5 seconde). Je webcam past dan zijn belichting aan de lege
+   kamer aan; een foto van vlak daarvoor is te licht.
+5. Bij *Lege kamer vastgelegd!* kun je terugkomen.
 
 Druk op **spatie** om de lege kamer opnieuw vast te leggen, bijvoorbeeld als
 je de camera hebt verschoven of het licht flink is veranderd.
 
 **Tips voor het beste resultaat**
 - Zet je camera stevig neer; als hij beweegt klopt de foto van de kamer niet meer.
-- Kleine lichtverschillen (de camera die zijn belichting aanpast) worden
-  automatisch gecorrigeerd. Doe je een lamp aan of uit, druk dan op spatie.
+- Lichtverschillen (de camera die zijn belichting en kleur aanpast) worden
+  automatisch gecorrigeerd, per plek in beeld. Doe je een lamp aan of uit,
+  druk dan op spatie.
 - Wat er achter je beweegt (een huisdier, iemand die langsloopt) blijft
   gewoon zichtbaar: alleen jij wordt vervangen.
 
@@ -256,7 +260,7 @@ De grenzen staan in `itcam/gesture.py` (`GestureSettings`).
 | `Webcam 0 is niet beschikbaar` | Sluit Teams/Zoom/browsertabbladen die de camera gebruiken, of probeer `--camera 1`. |
 | Vergaderapp toont zwart beeld of het OBS-logo | Draait `start.bat` nog? Kies daarna opnieuw "OBS Virtual Camera" in de app. |
 | `Geen geschikte Python-versie gevonden` of `No matching distribution found for pyvirtualcam` | Je hebt een te nieuwe Python-versie. Installeer Python 3.13 ernaast, zie [Python-versie](#python-versie). `start.bat` maakt de omgeving dan vanzelf opnieuw aan. |
-| Er blijft een "spook" of rand van je zichtbaar | Druk op spatie en leg de lege kamer opnieuw vast; zorg dat je dan echt helemaal uit beeld bent. |
+| Er blijft een lichte of donkere vlek in jouw vorm zichtbaar | De foto van de lege kamer is anders belicht dan het live beeld. Druk op spatie, stap helemaal uit beeld en blijf weg tot *Lege kamer vastgelegd!* verschijnt. Helpt dat niet, zet dan in de instellingen van je webcam (bijvoorbeeld de Camera-app van Windows of de software van je webcam) automatische belichting uit. |
 | Een stuk van de kamer "bevriest" | Dat deel wijkt af van de vastgelegde foto (licht veranderd, iets verplaatst). Druk op spatie. |
 | Het beeld hapert als je onzichtbaar bent | Probeer een lagere resolutie: `--width 960 --height 540`. |
 | `Kan het geluidsbestand ... niet lezen` | Het bestand is beschadigd of geen echt MP3/WAV (bijvoorbeeld `.m4a` hernoemd naar `.mp3`). Zet het om naar MP3 of WAV, bijvoorbeeld met Audacity. |

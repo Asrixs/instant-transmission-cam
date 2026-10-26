@@ -76,16 +76,69 @@ class TestHidePerson:
         assert output[0, 0, 0] == pytest.approx(125, abs=2)
 
 
-def test_brightness_matcher_follows_camera_exposure():
-    background = room()
-    frame = np.clip(background.astype(np.float32) * 1.2, 0, 255).astype(np.uint8)
-    no_person = np.zeros(background.shape[:2], dtype=np.float32)
-    matcher = BrightnessMatcher()
-    for _ in range(60):
+def smooth_room(height=90, width=160) -> np.ndarray:
+    """Een kamer met zachte overgangen (muur, kast), zoals een echte achtergrond."""
+    y, x = np.mgrid[0:height, 0:width].astype(np.float32)
+    base = 120 + 60 * np.sin(x / 25) * np.cos(y / 30)
+    return np.clip(np.stack([base, base * 0.95, base * 1.05], axis=2), 0, 255).astype(np.uint8)
+
+
+class TestBrightnessMatcher:
+    def test_follows_camera_exposure(self):
+        background = smooth_room()
+        frame = np.clip(background.astype(np.float32) * 1.2, 0, 255).astype(np.uint8)
+        no_person = np.zeros(background.shape[:2], dtype=np.float32)
+        matcher = BrightnessMatcher()
+        for _ in range(30):
+            matcher.update(frame, background, no_person)
+        corrected = matcher.apply(background).astype(int)
+        assert np.abs(corrected - frame.astype(int)).mean() < 3
+
+    def test_fills_in_the_person_area_from_the_surroundings(self):
+        # De foto is te licht (camera was nog niet ingesteld); op jouw plek mag dat niet te zien zijn.
+        room_now = smooth_room()
+        photo = np.clip(room_now.astype(np.float32) * 1.25, 0, 255).astype(np.uint8)
+        frame = room_now.copy()
+        frame[20:90, 60:100] = (60, 40, 30)  # jij, in een donker shirt
+        mask = np.zeros(frame.shape[:2], dtype=np.float32)
+        mask[18:90, 56:104] = 1.0
+        matcher = BrightnessMatcher()
+        for _ in range(30):
+            matcher.update(frame, photo, mask)
+        corrected = matcher.apply(photo).astype(int)
+        person_area = mask > 0
+        error_before = np.abs(photo.astype(int) - room_now.astype(int))[person_area].mean()
+        error_after = np.abs(corrected - room_now.astype(int))[person_area].mean()
+        assert error_before > 20
+        assert error_after < 4
+
+    def test_handles_different_correction_for_dark_and_light_parts(self):
+        # Webcams belichten donker en licht niet even sterk bij: links (donker) +40%, rechts (licht) -10%.
+        background = smooth_room()
+        frame = background.astype(np.float32)
+        frame[:, :80] *= 1.4
+        frame[:, 80:] *= 0.9
+        frame = np.clip(frame, 0, 255).astype(np.uint8)
+        no_person = np.zeros(background.shape[:2], dtype=np.float32)
+        matcher = BrightnessMatcher()
+        for _ in range(30):
+            matcher.update(frame, background, no_person)
+        corrected = matcher.apply(background).astype(int)
+        assert np.abs(corrected[:, :60] - frame[:, :60].astype(int)).mean() < 5
+        assert np.abs(corrected[:, 100:] - frame[:, 100:].astype(int)).mean() < 5
+
+    def test_ignores_overexposed_pixels(self):
+        background = smooth_room()
+        frame = background.copy()
+        frame[:, :20] = 255  # uitgebrand stuk: zegt niets over de belichting
+        no_person = np.zeros(background.shape[:2], dtype=np.float32)
+        matcher = BrightnessMatcher()
         matcher.update(frame, background, no_person)
-    assert matcher.gain == pytest.approx([1.2, 1.2, 1.2], abs=0.03)
-    corrected = matcher.apply(background).astype(int)
-    assert np.abs(corrected - frame.astype(int)).mean() < 4
+        assert np.abs(matcher.gain[:, 60:] - 1.0).max() < 0.05
+
+    def test_without_measurement_leaves_background_alone(self):
+        background = smooth_room()
+        assert BrightnessMatcher().apply(background) is background
 
 
 class TestBackgroundCapture:
@@ -98,7 +151,7 @@ class TestBackgroundCapture:
         assert capture.update(room(), 0.0, 3.9) is None
 
     def test_waits_until_person_has_left(self):
-        capture = BackgroundCapture(countdown_seconds=1.0, frames_needed=2)
+        capture = BackgroundCapture(countdown_seconds=1.0, frames_needed=2, settle_seconds=0.0)
         capture.start(0.0)
         background = room()
         assert capture.update(background, 0.0, 1.1) is None
@@ -112,7 +165,7 @@ class TestBackgroundCapture:
 
     def test_gives_up_waiting_after_a_while(self):
         # Bijvoorbeeld een poster met een persoon erop: niet eindeloos blijven wachten.
-        capture = BackgroundCapture(countdown_seconds=1.0, frames_needed=2, max_wait_seconds=10.0)
+        capture = BackgroundCapture(countdown_seconds=1.0, frames_needed=2, max_wait_seconds=10.0, settle_seconds=0.0)
         capture.start(0.0)
         background = room()
         assert capture.update(background, 0.05, 5.0) is None
@@ -120,8 +173,30 @@ class TestBackgroundCapture:
         assert capture.update(background, 0.05, 11.1) is None
         assert capture.update(background, 0.05, 11.2) is not None
 
+    def test_waits_for_camera_to_settle_after_you_left(self):
+        capture = BackgroundCapture(countdown_seconds=1.0, frames_needed=2, settle_seconds=1.5)
+        capture.start(0.0)
+        background = room()
+        assert capture.update(with_person(background), 0.3, 1.1) is None
+        assert capture.update(background, 0.0, 2.0) is None  # net weg: camera past zich nog aan
+        assert capture.status(2.5).phase == "settling"
+        assert capture.update(background, 0.0, 3.0) is None
+        assert capture.update(background, 0.0, 3.6) is None  # 1.6 s later: eerste beeld telt
+        assert capture.status(3.6).phase == "sampling"
+        assert capture.update(background, 0.0, 3.7) is not None
+
+    def test_coming_back_restarts_the_settle_time(self):
+        capture = BackgroundCapture(countdown_seconds=0.0, frames_needed=1, settle_seconds=1.0)
+        capture.start(0.0)
+        background = room()
+        capture.update(background, 0.0, 0.1)
+        capture.update(with_person(background), 0.3, 0.8)  # toch nog even in beeld
+        assert capture.update(background, 0.0, 1.0) is None
+        assert capture.update(background, 0.0, 1.5) is None
+        assert capture.update(background, 0.0, 2.1) is not None
+
     def test_median_removes_flicker(self):
-        capture = BackgroundCapture(countdown_seconds=0.0, frames_needed=3)
+        capture = BackgroundCapture(countdown_seconds=0.0, frames_needed=3, settle_seconds=0.0)
         capture.start(0.0)
         background = room()
         flicker = np.full_like(background, 255)

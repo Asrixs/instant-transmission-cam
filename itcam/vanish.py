@@ -18,7 +18,10 @@ MASK_FEATHER = 0.012
 DIFFERENCE_THRESHOLD = 28.0
 # Zo snel past de helderheid van de achtergrond zich aan de camera aan (0..1 per beeld).
 BRIGHTNESS_SMOOTHING = 0.15
-BRIGHTNESS_LIMITS = (0.75, 1.33)
+BRIGHTNESS_LIMITS = (0.5, 2.0)
+# Straal (relatief aan de beeldbreedte) waarover de helderheidscorrectie wordt uitgesmeerd.
+BRIGHTNESS_RADIUS = 0.08
+SATURATED, DARK = 245.0, 12.0
 
 
 def difference_mask(frame_small: np.ndarray, background_small: np.ndarray) -> np.ndarray:
@@ -69,42 +72,70 @@ def hide_person(frame: np.ndarray, background: np.ndarray, mask: np.ndarray, amo
 
 
 class BrightnessMatcher:
-    """Houdt de achtergrondfoto even helder als het live beeld.
+    """Houdt de foto van de lege kamer even licht (en even gekleurd) als het live beeld.
 
-    Webcams passen hun belichting steeds aan; zonder correctie zie je dan een
-    lichtere of donkerdere vlek waar je zat.
+    Webcams passen belichting en witbalans steeds aan, en niet voor alle
+    helderheden even sterk. Daarom per plek: overal waar de kamer zichtbaar is
+    wordt de verhouding live/foto gemeten, en op de plek waar jij zit wordt die
+    verhouding ingevuld vanuit de omgeving (vooral de muur vlak om je heen).
+    Zonder correctie zie je een lichtere of donkerdere vlek in jouw vorm.
     """
 
     def __init__(self) -> None:
-        self.gain = np.ones(3, dtype=np.float32)
+        self.gain: np.ndarray | None = None  # verhouding per pixel en kleur, op lage resolutie
 
     def reset(self) -> None:
-        self.gain = np.ones(3, dtype=np.float32)
+        self.gain = None
 
     def update(self, frame_small: np.ndarray, background_small: np.ndarray, mask_small: np.ndarray) -> None:
-        room = mask_small < 0.05
-        if np.count_nonzero(room) < room.size * 0.1:
+        live = frame_small.astype(np.float32)
+        stored = background_small.astype(np.float32)
+        # Alleen kamer meten, en geen overbelichte of bijna zwarte pixels (daar zegt de verhouding niets).
+        usable = (
+            (mask_small < 0.05)
+            & (live.max(axis=2) < SATURATED) & (stored.max(axis=2) < SATURATED)
+            & (live.min(axis=2) > DARK) & (stored.min(axis=2) > DARK)
+        )
+        if np.count_nonzero(usable) < usable.size * 0.05:
             return
-        live = frame_small[room].astype(np.float32).mean(axis=0)
-        stored = background_small[room].astype(np.float32).mean(axis=0)
-        target = np.clip(live / np.maximum(stored, 1.0), *BRIGHTNESS_LIMITS)
-        self.gain += (target - self.gain) * BRIGHTNESS_SMOOTHING
+        weight = usable.astype(np.float32)
+        ratio = np.clip(live / np.maximum(stored, 1.0), *BRIGHTNESS_LIMITS) * weight[:, :, None]
+        sigma = frame_small.shape[1] * BRIGHTNESS_RADIUS
+        spread_ratio = cv2.GaussianBlur(ratio, (0, 0), sigma)
+        spread_weight = cv2.GaussianBlur(weight, (0, 0), sigma)[:, :, None]
+        # Waar te weinig kamer in de buurt is: de gemiddelde verhouding van het hele beeld.
+        overall = ratio.sum(axis=(0, 1)) / weight.sum()
+        trust = np.clip(spread_weight / 0.05, 0.0, 1.0)
+        local = spread_ratio / np.maximum(spread_weight, 1e-4)
+        target = local * trust + overall * (1.0 - trust)
+        if self.gain is None or self.gain.shape != target.shape:
+            self.gain = target
+        else:
+            self.gain += (target - self.gain) * BRIGHTNESS_SMOOTHING
 
     def apply(self, background: np.ndarray) -> np.ndarray:
-        if np.allclose(self.gain, 1.0, atol=0.01):
+        if self.gain is None:
             return background
-        return cv2.multiply(background, (*map(float, self.gain), 0.0))
+        height, width = background.shape[:2]
+        gain = cv2.resize(self.gain, (width, height), interpolation=cv2.INTER_LINEAR)
+        # Met OpenCV direct naar 8-bit: 3x sneller dan via floats in numpy.
+        return cv2.multiply(background, gain, dtype=cv2.CV_8U)
 
 
 @dataclass(frozen=True)
 class CaptureStatus:
-    phase: str  # "countdown", "waiting" (je bent nog in beeld) of "sampling"
+    phase: str  # "countdown", "waiting" (je bent nog in beeld), "settling" (camera stelt zich in) of "sampling"
     seconds_left: float
 
 
 class BackgroundCapture:
-    """Legt de lege kamer vast: aftellen, wachten tot je uit beeld bent, dan een
-    paar beelden middelen (de mediaan haalt ruis en flikkering weg).
+    """Legt de lege kamer vast: aftellen, wachten tot je uit beeld bent, de camera
+    even laten wennen, dan een paar beelden middelen (de mediaan haalt ruis en
+    flikkering weg).
+
+    Dat wennen is nodig omdat een webcam zijn belichting en witbalans pas na
+    ongeveer een seconde aanpast als jij uit beeld stapt. Een foto van vlak
+    daarna is te licht, waardoor je later als lichte vlek zichtbaar blijft.
 
     Ziet het model na max_wait_seconds nog steeds een persoon (bijvoorbeeld een
     poster of tv), dan wordt de kamer toch vastgelegd.
@@ -116,14 +147,17 @@ class BackgroundCapture:
         frames_needed: int = 8,
         max_person_fraction: float = 0.01,
         max_wait_seconds: float = 10.0,
+        settle_seconds: float = 1.5,
     ) -> None:
         self.countdown_seconds = countdown_seconds
         self.frames_needed = frames_needed
         self.max_person_fraction = max_person_fraction
         self.max_wait_seconds = max_wait_seconds
+        self.settle_seconds = settle_seconds
         self._started: float | None = None
         self._frames: list[np.ndarray] = []
         self._waiting = False
+        self._absent_since: float | None = None
 
     @property
     def active(self) -> bool:
@@ -133,6 +167,7 @@ class BackgroundCapture:
         self._started = now
         self._frames = []
         self._waiting = False
+        self._absent_since = None
 
     def needs_check(self, now: float) -> bool:
         """True als het volgende beeld gecontroleerd moet worden op een persoon."""
@@ -144,7 +179,12 @@ class BackgroundCapture:
         left = self.countdown_seconds - (now - self._started)
         if left > 0:
             return CaptureStatus("countdown", left)
-        return CaptureStatus("waiting" if self._waiting else "sampling", 0.0)
+        if self._waiting:
+            return CaptureStatus("waiting", 0.0)
+        if self._absent_since is None or now - self._absent_since < self.settle_seconds:
+            settled = 0.0 if self._absent_since is None else now - self._absent_since
+            return CaptureStatus("settling", max(self.settle_seconds - settled, 0.0))
+        return CaptureStatus("sampling", 0.0)
 
     def update(self, frame: np.ndarray, fraction: float, now: float) -> np.ndarray | None:
         """Geeft de achtergrond terug zodra die klaar is, anders None."""
@@ -154,14 +194,20 @@ class BackgroundCapture:
         if fraction > self.max_person_fraction and waited < self.max_wait_seconds:
             self._frames = []
             self._waiting = True
+            self._absent_since = None
             return None
         self._waiting = False
+        if self._absent_since is None:
+            self._absent_since = now
+        if now - self._absent_since < self.settle_seconds:
+            return None
         self._frames.append(frame.copy())
         if len(self._frames) < self.frames_needed:
             return None
         background = np.median(np.stack(self._frames), axis=0).astype(np.uint8)
         self._started = None
         self._frames = []
+        self._absent_since = None
         return background
 
 

@@ -114,21 +114,36 @@ def draw_overlay(preview: np.ndarray, detection: Detection, progress: float) -> 
         cv2.circle(preview, tips, 7, GREEN if detection.active else YELLOW, -1, cv2.LINE_AA)
 
 
+def draw_panel(preview: np.ndarray, left: int, top: int, right: int, bottom: int) -> None:
+    """Donker, half doorzichtig vlak zodat witte tekst op elke achtergrond leesbaar is."""
+    height, width = preview.shape[:2]
+    left, top, right, bottom = max(left, 0), max(top, 0), min(right, width), min(bottom, height)
+    if right > left and bottom > top:
+        area = preview[top:bottom, left:right]
+        preview[top:bottom, left:right] = cv2.addWeighted(area, 0.4, np.zeros_like(area), 0.6, 0)
+
+
 def draw_text(preview: np.ndarray, text: str, position: tuple[int, int], scale: float, thickness: int) -> None:
-    cv2.putText(preview, text, position, cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 0, 0), thickness + 3, cv2.LINE_AA)
+    """Witte tekst op een donker vlak. position is linksonder van de tekst (zoals bij cv2.putText)."""
+    (text_width, text_height), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, thickness)
+    x, y = position
+    pad = max(4, int(text_height * 0.35))
+    draw_panel(preview, x - pad, y - text_height - pad, x + text_width + pad, y + baseline + pad)
     cv2.putText(preview, text, position, cv2.FONT_HERSHEY_SIMPLEX, scale, WHITE, thickness, cv2.LINE_AA)
 
 
 def draw_status(preview: np.ndarray, lines: list[str]) -> None:
+    sizes = [cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.65, 1)[0] for text in lines]
+    draw_panel(preview, 0, 0, 24 + max(width for width, _ in sizes), 16 + 26 * len(lines))
     for row, text in enumerate(lines):
-        draw_text(preview, text, (12, 28 + row * 26), 0.65, 1)
+        cv2.putText(preview, text, (12, 30 + row * 26), cv2.FONT_HERSHEY_SIMPLEX, 0.65, WHITE, 1, cv2.LINE_AA)
 
 
 def draw_banner(preview: np.ndarray, text: str) -> None:
     """Grote tekst midden in beeld, bijvoorbeeld het aftellen."""
-    (text_width, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.4, 3)
+    (text_width, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.2, 2)
     height, width = preview.shape[:2]
-    draw_text(preview, text, ((width - text_width) // 2, height // 2), 1.4, 3)
+    draw_text(preview, text, ((width - text_width) // 2, height // 2), 1.2, 2)
 
 
 def draw_inset(preview: np.ndarray, camera: np.ndarray) -> None:
@@ -146,6 +161,8 @@ def capture_banner(status: CaptureStatus) -> str:
         return f"Stap uit beeld: {int(status.seconds_left) + 1}"
     if status.phase == "waiting":
         return "Je bent nog in beeld - stap opzij"
+    if status.phase == "settling":
+        return "Camera stelt zich in, blijf uit beeld..."
     return "Lege kamer vastleggen..."
 
 
